@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="h-screen flex flex-col overflow-hidden antialiased">
+      <body className="h-screen flex flex-col overflow-hidden antialiased" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange={false}>
           <TooltipProvider delayDuration={500}>
             <Header />
