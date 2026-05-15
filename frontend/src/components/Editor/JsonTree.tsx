@@ -9,11 +9,11 @@ import { toast } from 'sonner';
 interface TreeNodeProps {
   node: TreeNode;
   depth?: number;
+  isArrayItem?: boolean;
 }
 
-function TreeNodeRow({ node, depth = 0 }: TreeNodeProps) {
+function TreeNodeRow({ node, depth = 0, isArrayItem = false }: TreeNodeProps) {
   const [expanded, setExpanded] = useState(node.isExpanded ?? depth < 2);
-  const [hovering, setHovering] = useState(false);
 
   const isExpandable = node.type === 'object' || node.type === 'array';
   const childCount = node.children?.length ?? 0;
@@ -67,8 +67,6 @@ function TreeNodeRow({ node, depth = 0 }: TreeNodeProps) {
         )}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={() => isExpandable && setExpanded(!expanded)}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
       >
         {/* Expand icon */}
         <span className="w-4 shrink-0 flex items-center justify-center mt-0.5">
@@ -86,7 +84,11 @@ function TreeNodeRow({ node, depth = 0 }: TreeNodeProps) {
         {/* Key */}
         {node.key !== 'root' && (
           <>
-            <span className="text-blue-400 font-mono shrink-0">"{node.key}"</span>
+            {isArrayItem ? (
+              <span className="text-muted-foreground/60 font-mono shrink-0">[{node.key}]</span>
+            ) : (
+              <span className="text-blue-400 font-mono shrink-0">"{node.key}"</span>
+            )}
             <span className="text-muted-foreground mx-1 shrink-0">:</span>
           </>
         )}
@@ -110,7 +112,12 @@ function TreeNodeRow({ node, depth = 0 }: TreeNodeProps) {
       {isExpandable && expanded && node.children && (
         <div>
           {node.children.map((child, i) => (
-            <TreeNodeRow key={`${child.key}-${i}`} node={child} depth={depth + 1} />
+            <TreeNodeRow
+              key={`${child.key}-${i}`}
+              node={child}
+              depth={depth + 1}
+              isArrayItem={node.type === 'array'}
+            />
           ))}
           <div
             className="text-xs text-muted-foreground font-mono py-0.5"

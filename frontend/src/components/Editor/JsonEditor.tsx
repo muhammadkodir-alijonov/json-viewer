@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import Editor, { OnMount, BeforeMount } from '@monaco-editor/react';
-import * as Y from 'yjs';
 import { useTheme } from 'next-themes';
 import { Loader2 } from 'lucide-react';
 import { editor, KeyMod, KeyCode } from 'monaco-editor';
@@ -10,200 +9,149 @@ import { editor, KeyMod, KeyCode } from 'monaco-editor';
 interface JsonEditorProps {
   value: string;
   onChange: (value: string) => void;
-  yText: Y.Text | null;
   onFormat?: () => void;
+  onCursorChange?: (line: number, col: number) => void;
   fontSize?: number;
-  readOnly?: boolean;
 }
 
-export function JsonEditor({
-  value,
-  onChange,
-  yText,
-  onFormat,
-  fontSize = 13,
-  readOnly = false,
-}: JsonEditorProps) {
+export function JsonEditor({ value, onChange, onFormat, onCursorChange, fontSize = 13 }: JsonEditorProps) {
   const { resolvedTheme } = useTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-  const isRemoteUpdate = useRef(false);
-  const isLocalUpdate = useRef(false);
-
-  // Yjs → Monaco sync
-  useEffect(() => {
-    if (!yText || !editorRef.current) return;
-
-    const handler = (events: Y.YTextEvent[], tr: Y.Transaction) => {
-      if (tr.local) return; // local update, skip
-      isRemoteUpdate.current = true;
-
-      const ed = editorRef.current!;
-      const model = ed.getModel();
-      if (!model) return;
-
-      const fullText = yText.toString();
-      const currentText = model.getValue();
-
-      if (fullText !== currentText) {
-        const position = ed.getPosition();
-        model.setValue(fullText);
-        if (position) ed.setPosition(position);
-        onChange(fullText);
-      }
-
-      isRemoteUpdate.current = false;
-    };
-
-    yText.observe(handler);
-    return () => yText.unobserve(handler);
-  }, [yText, onChange]);
-
-  // Monaco → Yjs sync
-  const handleEditorChange = useCallback(
-    (newValue: string | undefined) => {
-      if (isRemoteUpdate.current || !newValue === undefined) return;
-      const val = newValue ?? '';
-      onChange(val);
-
-      if (!yText) return;
-      isLocalUpdate.current = true;
-
-      const current = yText.toString();
-      if (current !== val) {
-        yText.doc?.transact(() => {
-          yText.delete(0, yText.length);
-          yText.insert(0, val);
-        });
-      }
-
-      isLocalUpdate.current = false;
-    },
-    [yText, onChange]
-  );
+  // Ref pattern: stale closure muammosini hal qiladi
+  const onFormatRef = useRef(onFormat);
+  const onCursorChangeRef = useRef(onCursorChange);
+  useEffect(() => { onFormatRef.current = onFormat; }, [onFormat]);
+  useEffect(() => { onCursorChangeRef.current = onCursorChange; }, [onCursorChange]);
 
   const beforeMount: BeforeMount = (monaco) => {
-    // Custom dark theme
     monaco.editor.defineTheme('json-dark', {
       base: 'vs-dark',
       inherit: true,
       rules: [
-        { token: 'string.key.json', foreground: '79b8ff' },
+        { token: 'string.key.json',   foreground: '79b8ff' },
         { token: 'string.value.json', foreground: '85e89d' },
-        { token: 'number.json', foreground: '79b8ff' },
-        { token: 'keyword.json', foreground: 'f97583' },
-        { token: 'delimiter.bracket.json', foreground: 'e1e4e8' },
-        { token: 'delimiter.comma.json', foreground: 'e1e4e8' },
-        { token: 'delimiter.colon.json', foreground: 'e1e4e8' },
+        { token: 'number.json',       foreground: 'f8c555' },
+        { token: 'keyword.json',      foreground: 'f97583' },
+        { token: 'delimiter.bracket.json', foreground: 'abb2bf' },
+        { token: 'delimiter.comma.json',   foreground: 'abb2bf' },
+        { token: 'delimiter.colon.json',   foreground: 'abb2bf' },
       ],
       colors: {
-        'editor.background': '#0d1117',
-        'editor.foreground': '#e6edf3',
-        'editor.lineHighlightBackground': '#161b22',
-        'editorLineNumber.foreground': '#6e7681',
-        'editorLineNumber.activeForeground': '#e6edf3',
-        'editor.selectionBackground': '#264f78',
-        'editorCursor.foreground': '#c9d1d9',
-        'editor.inactiveSelectionBackground': '#1f2428',
-        'editorIndentGuide.background': '#21262d',
-        'editorIndentGuide.activeBackground': '#30363d',
+        'editor.background':                '#0d1117',
+        'editor.foreground':                '#e6edf3',
+        'editor.lineHighlightBackground':   '#161b2280',
+        'editor.lineHighlightBorder':       '#00000000',
+        'editorLineNumber.foreground':      '#6e7681',
+        'editorLineNumber.activeForeground':'#e6edf3',
+        'editor.selectionBackground':       '#264f7866',
+        'editorCursor.foreground':          '#79b8ff',
+        'editorIndentGuide.background1':    '#21262d',
+        'editorIndentGuide.activeBackground1': '#30363d',
+        'editorBracketMatch.background':    '#0d419d55',
+        'editorBracketMatch.border':        '#388bfd',
+        'scrollbar.shadow':                 '#00000000',
+        'scrollbarSlider.background':       '#484f5833',
+        'scrollbarSlider.hoverBackground':  '#484f5855',
+        'scrollbarSlider.activeBackground': '#484f5877',
       },
     });
 
-    // Custom light theme
     monaco.editor.defineTheme('json-light', {
       base: 'vs',
       inherit: true,
       rules: [
-        { token: 'string.key.json', foreground: '0550ae' },
-        { token: 'string.value.json', foreground: '0a3069' },
-        { token: 'number.json', foreground: '0550ae' },
-        { token: 'keyword.json', foreground: 'cf222e' },
+        { token: 'string.key.json',   foreground: '0550ae' },
+        { token: 'string.value.json', foreground: '116329' },
+        { token: 'number.json',       foreground: '0550ae' },
+        { token: 'keyword.json',      foreground: 'cf222e' },
       ],
       colors: {
-        'editor.background': '#ffffff',
-        'editor.foreground': '#24292f',
-        'editor.lineHighlightBackground': '#f6f8fa',
-        'editorLineNumber.foreground': '#8c959f',
-        'editor.selectionBackground': '#add6ff',
+        'editor.background':                '#ffffff',
+        'editor.foreground':                '#24292f',
+        'editor.lineHighlightBackground':   '#f6f8fa',
+        'editor.lineHighlightBorder':       '#00000000',
+        'editorLineNumber.foreground':      '#8c959f',
+        'editorLineNumber.activeForeground':'#24292f',
+        'editor.selectionBackground':       '#add6ff',
+        'editorCursor.foreground':          '#0969da',
+        'editorBracketMatch.background':    '#ddf4ff',
+        'editorBracketMatch.border':        '#0969da',
       },
     });
-  };
 
-  const onMount: OnMount = (ed, monaco) => {
-    editorRef.current = ed;
-
-    // Format shortcut: Ctrl+Shift+F
-    ed.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyF, () => {
-      onFormat?.();
-    });
-
-    // JSON diagnostics — Monaco built-in
     monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
       validate: true,
       allowComments: false,
       schemas: [],
       enableSchemaRequest: false,
     });
-
-    // Focus editor
-    ed.focus();
   };
+
+  // useCallback dependency yo'q — ref orqali har doim yangi qiymat oladi
+  const onMount: OnMount = useCallback((ed) => {
+    editorRef.current = ed;
+
+    // Ctrl/Cmd + Shift + F → format (har doim fresh onFormat chaqiriladi)
+    ed.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyF, () => {
+      onFormatRef.current?.();
+    });
+
+    // Cursor position tracking
+    ed.onDidChangeCursorPosition((e) => {
+      onCursorChangeRef.current?.(e.position.lineNumber, e.position.column);
+    });
+
+    ed.focus();
+  }, []); // bo'sh dependency — faqat bir marta mount qilinadi
 
   const theme = resolvedTheme === 'dark' ? 'json-dark' : 'json-light';
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
-      <Editor
-        height="100%"
-        language="json"
-        theme={theme}
-        value={value}
-        beforeMount={beforeMount}
-        onMount={onMount}
-        onChange={handleEditorChange}
-        loading={
-          <div className="flex items-center justify-center h-full gap-2 text-muted-foreground text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading editor...
-          </div>
-        }
-        options={{
-          fontSize,
-          fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-          fontLigatures: true,
-          lineNumbers: 'on',
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          wordWrap: 'off',
-          automaticLayout: true,
-          tabSize: 2,
-          insertSpaces: true,
-          formatOnPaste: true,
-          formatOnType: false,
-          bracketPairColorization: { enabled: true },
-          guides: {
-            bracketPairs: true,
-            indentation: true,
-          },
-          renderWhitespace: 'none',
-          smoothScrolling: true,
-          cursorBlinking: 'smooth',
-          cursorSmoothCaretAnimation: 'on',
-          padding: { top: 12, bottom: 12 },
-          readOnly,
-          quickSuggestions: false,
-          hover: { enabled: true },
-          folding: true,
-          foldingHighlight: true,
-          showFoldingControls: 'mouseover',
-          scrollbar: {
-            vertical: 'auto',
-            horizontal: 'auto',
-            verticalScrollbarSize: 6,
-            horizontalScrollbarSize: 6,
-          },
-        }}
-      />
-    </div>
+    <Editor
+      height="100%"
+      language="json"
+      theme={theme}
+      value={value}
+      beforeMount={beforeMount}
+      onMount={onMount}
+      onChange={(v) => onChange(v ?? '')}
+      loading={
+        <div className="flex items-center justify-center h-full gap-2 text-muted-foreground text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading editor...
+        </div>
+      }
+      options={{
+        fontSize,
+        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+        fontLigatures: true,
+        lineNumbers: 'on',
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        wordWrap: 'off',
+        automaticLayout: true,
+        tabSize: 2,
+        insertSpaces: true,
+        formatOnPaste: true,
+        bracketPairColorization: { enabled: true },
+        guides: { bracketPairs: true, indentation: true },
+        renderWhitespace: 'none',
+        smoothScrolling: true,
+        cursorBlinking: 'smooth',
+        cursorSmoothCaretAnimation: 'on',
+        padding: { top: 12, bottom: 12 },
+        quickSuggestions: false,
+        folding: true,
+        showFoldingControls: 'mouseover',
+        scrollbar: {
+          vertical: 'auto',
+          horizontal: 'auto',
+          verticalScrollbarSize: 5,
+          horizontalScrollbarSize: 5,
+        },
+        overviewRulerBorder: false,
+        renderLineHighlight: 'line',
+      }}
+    />
   );
 }

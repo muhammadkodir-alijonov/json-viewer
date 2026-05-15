@@ -1,168 +1,85 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { JsonTree } from './JsonTree';
 import { EditorToolbar } from './EditorToolbar';
-import { RoomHeader } from '@/components/Room/RoomHeader';
-import { useRoom } from '@/hooks/useRoom';
-import { useSocket } from '@/hooks/useSocket';
-import { useJsonValidation } from '@/hooks/useJsonValidation';
-import { PanelLayout } from '@/types';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { StatusBar } from './StatusBar';
+import { ResizablePanel } from './ResizablePanel';
+import { useJsonEditor } from '@/hooks/useJsonEditor';
 
-// Monaco is client-only
-const JsonEditor = dynamic(
-  () => import('./JsonEditor').then((m) => m.JsonEditor),
-  { ssr: false }
-);
+const JsonEditor = dynamic(() => import('./JsonEditor').then((m) => m.JsonEditor), { ssr: false });
 
-const DEFAULT_JSON = `{
-  "name": "JSON Viewer",
-  "version": "1.0.0",
-  "description": "Real-time collaborative JSON editor",
-  "features": [
-    "Syntax highlighting",
-    "Real-time collaboration",
-    "Tree view",
-    "Format & Minify"
-  ],
-  "author": {
-    "name": "You",
-    "ready": true
-  }
-}`;
+export function EditorWorkspace() {
+  const {
+    value, validation, layout,
+    setLayout, handleChange, handleFormat, handleMinify,
+    handleClear, handleFileLoad,
+  } = useJsonEditor();
 
-interface EditorWorkspaceProps {
-  roomId: string;
-}
+  const [cursor, setCursor] = useState({ line: 1, col: 1 });
 
-export function EditorWorkspace({ roomId }: EditorWorkspaceProps) {
-  const [value, setValue] = useState(DEFAULT_JSON);
-  const [layout, setLayout] = useState<PanelLayout>('split');
-  const [isFormatting, setIsFormatting] = useState(false);
+  const handleCursor = useCallback((line: number, col: number) => {
+    setCursor({ line, col });
+  }, []);
 
-  const { status } = useSocket();
-  const { synced, clients, user, getYText } = useRoom(roomId);
-  const { validation, validate, format, minify } = useJsonValidation();
+  const showEditor = layout !== 'tree-only';
+  const showTree   = layout !== 'editor-only';
 
-  // Validate on change
-  useEffect(() => {
-    validate(value);
-  }, [value, validate]);
-
-  // Sync yText initial value
-  useEffect(() => {
-    const yText = getYText();
-    if (!yText || yText.length > 0) return;
-    // Only set default if yText is empty (new room)
-  }, [getYText]);
-
-  const handleFormat = useCallback(
-    async (sortKeys = false) => {
-      if (!value.trim()) return;
-      setIsFormatting(true);
-      const result = await format(value, sortKeys);
-      if (result) {
-        setValue(result);
-        const yText = getYText();
-        if (yText) {
-          yText.doc?.transact(() => {
-            yText.delete(0, yText.length);
-            yText.insert(0, result);
-          });
-        }
-        toast.success(sortKeys ? 'Formatted & sorted!' : 'Formatted!');
-      } else {
-        toast.error('Invalid JSON — cannot format');
-      }
-      setIsFormatting(false);
-    },
-    [value, format, getYText]
+  const editorPanel = (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="h-7 px-3 flex items-center bg-muted/20 border-b border-border shrink-0">
+        <span className="text-[11px] font-medium text-muted-foreground tracking-wide uppercase">Editor</span>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <JsonEditor
+          value={value}
+          onChange={handleChange}
+          onFormat={() => { handleFormat(false); }}
+          onCursorChange={handleCursor}
+        />
+      </div>
+    </div>
   );
 
-  const handleMinify = useCallback(async () => {
-    if (!value.trim()) return;
-    const result = await minify(value);
-    if (result) {
-      setValue(result);
-      const yText = getYText();
-      if (yText) {
-        yText.doc?.transact(() => {
-          yText.delete(0, yText.length);
-          yText.insert(0, result);
-        });
-      }
-      toast.success('Minified!');
-    } else {
-      toast.error('Invalid JSON — cannot minify');
-    }
-  }, [value, minify, getYText]);
-
-  const showEditor = layout === 'split' || layout === 'editor-only';
-  const showTree = layout === 'split' || layout === 'tree-only';
+  const treePanel = (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="h-7 px-3 flex items-center bg-muted/20 border-b border-border shrink-0">
+        <span className="text-[11px] font-medium text-muted-foreground tracking-wide uppercase">Tree View</span>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <JsonTree value={value} />
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <RoomHeader
-        roomId={roomId}
-        clients={clients}
-        currentUser={user}
-        connectionStatus={status}
-        synced={synced}
-      />
-
       <EditorToolbar
         value={value}
-        validation={validation}
         layout={layout}
-        isFormatting={isFormatting}
         onFormat={handleFormat}
         onMinify={handleMinify}
+        onClear={handleClear}
+        onFileLoad={handleFileLoad}
         onLayoutChange={setLayout}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Editor panel */}
-        {showEditor && (
-          <div
-            className={cn(
-              'flex flex-col overflow-hidden',
-              layout === 'split' ? 'w-1/2 border-r border-border' : 'w-full'
-            )}
-          >
-            <div className="h-7 px-3 flex items-center border-b border-border bg-muted/30 shrink-0">
-              <span className="text-xs text-muted-foreground font-medium">Editor</span>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <JsonEditor
-                value={value}
-                onChange={setValue}
-                yText={getYText()}
-                onFormat={() => handleFormat(false)}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Tree panel */}
-        {showTree && (
-          <div
-            className={cn(
-              'flex flex-col overflow-hidden',
-              layout === 'split' ? 'w-1/2' : 'w-full'
-            )}
-          >
-            <div className="h-7 px-3 flex items-center border-b border-border bg-muted/30 shrink-0">
-              <span className="text-xs text-muted-foreground font-medium">Tree View</span>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <JsonTree value={value} />
-            </div>
-          </div>
+      <div className="flex-1 overflow-hidden">
+        {layout === 'split' ? (
+          <ResizablePanel left={editorPanel} right={treePanel} />
+        ) : layout === 'editor-only' ? (
+          <div className="h-full">{editorPanel}</div>
+        ) : (
+          <div className="h-full">{treePanel}</div>
         )}
       </div>
+
+      <StatusBar
+        validation={validation}
+        cursorLine={cursor.line}
+        cursorCol={cursor.col}
+      />
     </div>
   );
 }

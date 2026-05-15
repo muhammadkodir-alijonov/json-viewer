@@ -6,22 +6,16 @@ import { Header } from '@/components/Layout/Header';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'JSONViewer — Real-time Collaborative JSON Editor',
-  description: 'Format, validate, and collaborate on JSON in real-time',
-  icons: { icon: '/favicon.ico' },
+  title: 'JSONViewer — Format, Validate & Explore JSON',
+  description: 'A fast, beautiful JSON viewer with syntax highlighting, tree view, format and minify.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="h-screen flex flex-col overflow-hidden antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange={false}
-        >
-          <TooltipProvider delayDuration={400}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange={false}>
+          <TooltipProvider delayDuration={500}>
             <Header />
             <main className="flex-1 overflow-hidden">
               {children}
@@ -30,9 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               position="bottom-right"
               toastOptions={{
                 classNames: {
-                  toast: 'bg-background border border-border text-foreground text-sm',
-                  success: 'text-green-500',
-                  error: 'text-destructive',
+                  toast: 'bg-background border border-border text-foreground text-sm shadow-lg',
+                  success: '!text-green-500',
+                  error:   '!text-destructive',
                 },
               }}
             />
