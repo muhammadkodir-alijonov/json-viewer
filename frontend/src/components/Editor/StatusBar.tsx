@@ -62,6 +62,7 @@ export function StatusBar({ validation, cursorLine, cursorCol }: StatusBarProps)
       {cursorLine != null && (
         <span>Ln {cursorLine}, Col {cursorCol}</span>
       )}
+
     </div>
   );
 }

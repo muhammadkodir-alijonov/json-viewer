@@ -6,8 +6,8 @@ import { Header } from '@/components/Layout/Header';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'JSONViewer — Format, Validate & Explore JSON',
-  description: 'A fast, beautiful JSON viewer with syntax highlighting, tree view, format and minify.',
+  title: 'FB JSONViewer — Format, Validate & Explore JSON',
+  description: 'Fido Biznes JSON viewer with syntax highlighting, tree view, format and minify.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
